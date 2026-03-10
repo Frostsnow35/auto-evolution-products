@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "semantic-fs"
+version = "0.1.0"
+description = "Find files by what they mean, not where they are"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0",
+    "rich>=13.0",
+    "chromadb>=0.4.0",
+    "sentence-transformers>=2.2.0",
+    "watchdog>=3.0",
+    "PyPDF2>=3.0",
+    "python-magic>=0.4.27",
+    "tiktoken>=0.5.0",
+]
+
+[project.scripts]
+sfs = "semantic_fs.cli:main"
+
+[project.optional-dependencies]
+api = ["openai>=1.0"]
+dev = ["pytest", "black", "ruff"]
