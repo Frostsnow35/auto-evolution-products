@@ -21,7 +21,7 @@ sfs ask "what did I write about the project timeline?"
 - 💬 **Q&A Mode** — ask questions, get answers sourced from your files
 - 🔒 **Privacy First** — local mode (Ollama) or API mode (configurable)
 - 📁 **Deep Indexing** — text files, markdown, PDFs, code, notes
-- ⚡ **Incremental Updates** — only re-index changed files
+- ⚡ **Incremental Updates** — skips already indexed files and prunes stale entries for deleted files
 
 ## Architecture
 

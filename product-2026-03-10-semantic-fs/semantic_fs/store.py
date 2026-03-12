@@ -76,9 +76,19 @@ def get_indexed_files(db_path: str) -> set[str]:
     col = _collection(client)
     try:
         all_meta = col.get(include=["metadatas"])["metadatas"]
-        return {m["file_path"] for m in all_meta}
+        return {m["file_path"] for m in all_meta if m and m.get("file_path")}
     except Exception:
         return set()
+
+
+def prune_missing_files(db_path: str, existing_paths: set[str]) -> int:
+    """Remove indexed entries for files that no longer exist on disk."""
+    removed = 0
+    for file_path in get_indexed_files(db_path):
+        if file_path not in existing_paths:
+            delete_file(db_path, file_path)
+            removed += 1
+    return removed
 
 
 def delete_file(db_path: str, file_path: str):

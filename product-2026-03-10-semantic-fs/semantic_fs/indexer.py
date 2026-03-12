@@ -43,6 +43,8 @@ def index_path(
             candidates.append(p)
 
     total = len(candidates)
+    candidate_paths = {str(p) for p in candidates}
+    store.prune_missing_files(db_path, candidate_paths)
     indexed = store.get_indexed_files(db_path)
 
     for i, file_path in enumerate(candidates):
