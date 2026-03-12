@@ -59,6 +59,25 @@ def index(path, force):
 
 
 @main.command()
+@click.argument("path", default="~/")
+@click.option("--recursive/--no-recursive", default=True, help="Watch subdirectories too")
+@click.option("--settle-seconds", default=1.0, show_default=True, help="Debounce window for repeated file events")
+def watch(path, recursive, settle_seconds):
+    """Watch PATH and incrementally re-index changed files."""
+    from .indexer import watch_path
+
+    console.print(f"[bold]Watching[/bold] {path} for file changes...")
+    observer = watch_path(path, recursive=recursive, settle_seconds=settle_seconds)
+    console.print("[green]✓[/green] Watcher started. Press Ctrl+C to stop.")
+    try:
+        observer.join()
+    except KeyboardInterrupt:
+        observer.stop()
+        observer.join()
+        console.print("[yellow]Watcher stopped.[/yellow]")
+
+
+@main.command()
 @click.argument("query")
 @click.option("--top", default=10, help="Number of results")
 def search(query, top):

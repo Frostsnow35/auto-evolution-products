@@ -21,7 +21,7 @@ sfs ask "what did I write about the project timeline?"
 - 💬 **Q&A Mode** — ask questions, get answers sourced from your files
 - 🔒 **Privacy First** — local mode (Ollama) or API mode (configurable)
 - 📁 **Deep Indexing** — text files, markdown, PDFs, code, notes
-- ⚡ **Incremental Updates** — skips unchanged files by mtime and prunes stale entries for deleted files
+- ⚡ **Incremental Updates** — skips unchanged files by mtime, prunes stale entries for deleted files, and can watch directories for background re-indexing
 
 ## Architecture
 
@@ -73,6 +73,9 @@ sfs status
 
 # Re-index a specific directory
 sfs index ~/Documents
+
+# Watch a directory and incrementally re-index changed files
+sfs watch ~/Documents
 ```
 
 ## Privacy Modes
