@@ -1,6 +1,7 @@
 """Q&A over indexed files using LLM."""
 from __future__ import annotations
 import json
+import re
 import urllib.request
 
 from . import config as cfg
@@ -42,6 +43,31 @@ def _call_api_chat(prompt: str, model: str, api_key: str, base_url: str) -> str:
     return data["choices"][0]["message"]["content"]
 
 
+def _rerank_score(question: str, result: dict) -> float:
+    score = float(result["score"])
+    q = question.lower()
+    file_path = result["file_path"].lower()
+    chunk = result["chunk"].lower()
+
+    project_query = any(token in q for token in ["project", "projects", "项目", "在做", "目前在做", "working on"])
+    if project_query:
+        path_boost_terms = ["project", "projects", "work", "report", "reports", "goal", "goals", "meeting", "meetings"]
+        content_boost_terms = ["project", "projects", "roadmap", "milestone", "goal", "goals", "report", "meeting"]
+        weak_terms = ["shopping", "python learning", "intro", "commands"]
+
+        for term in path_boost_terms:
+            if term in file_path:
+                score += 0.08
+        for term in content_boost_terms:
+            if term in chunk:
+                score += 0.04
+        for term in weak_terms:
+            if term in file_path:
+                score -= 0.06
+
+    return score
+
+
 def ask(question: str, top_k: int = 5) -> tuple[str, list[dict]]:
     """Answer a question using indexed files as context."""
     config = cfg.load_config()
@@ -61,7 +87,7 @@ def ask(question: str, top_k: int = 5) -> tuple[str, list[dict]]:
         if fp not in best_by_file or r["score"] > best_by_file[fp]["score"]:
             best_by_file[fp] = r
 
-    results = sorted(best_by_file.values(), key=lambda x: -x["score"])[:top_k]
+    results = sorted(best_by_file.values(), key=lambda x: -_rerank_score(question, x))[:top_k]
 
     context_parts = []
     for i, r in enumerate(results, start=1):

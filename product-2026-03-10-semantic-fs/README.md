@@ -18,7 +18,7 @@ sfs ask "what did I write about the project timeline?"
 ## Features (v1)
 
 - 🔍 **Semantic Search** — find files by meaning, not keywords
-- 💬 **Q&A Mode** — ask questions, get answers sourced from your files
+- 💬 **Q&A Mode** — ask questions, get answers sourced from your files, with lightweight query-aware ranking for better relevance
 - 🔒 **Privacy First** — local mode (Ollama) or API mode (configurable)
 - 📁 **Deep Indexing** — text files, markdown, PDFs, code, notes
 - ⚡ **Incremental Updates** — skips unchanged files by mtime, prunes stale entries for deleted files, and can watch directories for background re-indexing
