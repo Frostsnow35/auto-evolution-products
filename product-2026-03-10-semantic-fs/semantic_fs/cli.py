@@ -173,9 +173,22 @@ def status():
 
 def _diagnose_ollama(url: str) -> tuple[bool, str, list[str]]:
     tips: list[str] = []
-    parsed = urllib.parse.urlparse(url)
-    host = parsed.hostname or "localhost"
-    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    if importlib.util.find_spec("chromadb") is None:
+        tips.append("当前 Python 环境缺少 chromadb；本地索引功能会受影响")
+
+    if not os.environ.get("PATH"):
+        os.environ["PATH"] = "/usr/local/bin:/usr/bin:/bin"
+
+    ollama_in_path = bool(os.popen("command -v ollama 2>/dev/null").read().strip())
+    if not ollama_in_path:
+        tips = [
+            "本机尚未安装 Ollama，所以现在不能直接启动本地模型服务",
+            "Ubuntu 可先安装：sudo snap install ollama",
+            f"安装完成后运行：ollama serve",
+            f"然后用：sfs config set ollama_url {url}（如果不是默认地址再修改）",
+        ]
+        return False, "ollama command not found", tips
+
     try:
         with urllib.request.urlopen(f"{url.rstrip('/')}/api/tags", timeout=3) as resp:
             ok = resp.status == 200
@@ -185,9 +198,9 @@ def _diagnose_ollama(url: str) -> tuple[bool, str, list[str]]:
         reason = getattr(e, "reason", e)
         if isinstance(reason, ConnectionRefusedError):
             tips = [
-                "Ollama 似乎没有启动；可先运行：ollama serve",
+                "Ollama 已安装，但服务似乎没有启动；可先运行：ollama serve",
                 f"如果 Ollama 不在默认地址，请执行：sfs config set ollama_url {url}",
-                "确认本地已安装并可执行 ollama 命令",
+                "若已启动仍失败，检查端口 11434 是否被占用或被防火墙拦截",
             ]
             return False, f"{url} connection refused", tips
         if isinstance(reason, socket.timeout):
