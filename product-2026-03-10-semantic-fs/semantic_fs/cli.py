@@ -1,9 +1,11 @@
 """CLI entry point for Semantic FS."""
+import importlib.util
+import os
+import urllib.request
+
 import click
 from rich.console import Console
 from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn
-from rich import print as rprint
 
 from . import config as cfg
 from . import store
@@ -165,6 +167,60 @@ def status():
     else:
         console.print(f"  Embed model: {config['api_embed_model']}")
         console.print(f"  LLM:         {config['api_llm_model']}")
+
+
+@main.command()
+def doctor():
+    """Run a local health check for Semantic FS."""
+    config = cfg.load_config()
+    config_path = cfg.CONFIG_PATH
+    db_path = os.path.expanduser(config["db_path"])
+
+    rows = []
+
+    def add(check: str, ok: bool, detail: str):
+        rows.append((check, "OK" if ok else "WARN", detail))
+
+    add("config file", config_path.exists(), str(config_path))
+    add("db directory", os.path.isdir(db_path), db_path)
+    add("chromadb installed", importlib.util.find_spec("chromadb") is not None, "required for local index storage")
+    add("watchdog installed", importlib.util.find_spec("watchdog") is not None, "required for sfs watch")
+
+    mode = config.get("mode", "local")
+    add("mode", mode in {"local", "api"}, f"current mode: {mode}")
+
+    if mode == "local":
+        ollama_url = config.get("ollama_url", "http://localhost:11434").rstrip("/")
+        try:
+            with urllib.request.urlopen(f"{ollama_url}/api/tags", timeout=3) as resp:
+                ok = resp.status == 200
+            add("ollama reachable", ok, ollama_url)
+        except Exception as e:
+            add("ollama reachable", False, f"{ollama_url} ({e})")
+        add("embed model set", bool(config.get("ollama_model")), config.get("ollama_model", ""))
+        add("llm model set", bool(config.get("ollama_llm")), config.get("ollama_llm", ""))
+    else:
+        add("api key configured", bool(config.get("api_key")), "set via sfs config set api_key ...")
+        add("api base configured", bool(config.get("api_base")), config.get("api_base", ""))
+        add("embed model set", bool(config.get("api_embed_model")), config.get("api_embed_model", ""))
+        add("llm model set", bool(config.get("api_llm_model")), config.get("api_llm_model", ""))
+
+    table = Table(title="Semantic FS Doctor")
+    table.add_column("Check", style="bold")
+    table.add_column("Status", width=8)
+    table.add_column("Detail")
+    for check, status_text, detail in rows:
+        style = "green" if status_text == "OK" else "yellow"
+        table.add_row(check, f"[{style}]{status_text}[/{style}]", detail)
+
+    ok_count = sum(1 for _, status_text, _ in rows if status_text == "OK")
+    warn_count = len(rows) - ok_count
+    console.print(table)
+    console.print(f"\n[bold]Summary:[/bold] {ok_count} OK, {warn_count} warnings")
+    if warn_count:
+        console.print("[yellow]Suggestion:[/yellow] fix warnings before large indexing runs.")
+    else:
+        console.print("[green]Semantic FS looks ready.[/green]")
 
 
 @main.group()

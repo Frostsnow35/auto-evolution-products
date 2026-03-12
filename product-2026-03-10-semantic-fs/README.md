@@ -71,6 +71,9 @@ sfs ask "summarize my notes about machine learning"
 # Status
 sfs status
 
+# Self-check local setup
+sfs doctor
+
 # Re-index a specific directory
 sfs index ~/Documents
 
