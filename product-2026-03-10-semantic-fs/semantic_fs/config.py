@@ -6,7 +6,7 @@ from pathlib import Path
 DEFAULT_CONFIG = {
     "mode": "local",  # "local" or "api"
     "ollama_model": "nomic-embed-text",
-    "ollama_llm": "llama3",
+    "ollama_llm": "llama3.2:1b",
     "ollama_url": "http://localhost:11434",
     "api_key": "",
     "api_base": "https://api.openai.com/v1",

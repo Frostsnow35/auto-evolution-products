@@ -87,6 +87,7 @@ sfs watch ~/Documents
 # Local mode (default) — uses Ollama, fully offline
 sfs config set mode local
 sfs config set ollama_model nomic-embed-text
+sfs config set ollama_llm llama3.2:1b
 
 # API mode — faster, requires API key
 sfs config set mode api
