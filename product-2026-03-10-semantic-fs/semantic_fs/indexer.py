@@ -45,16 +45,15 @@ def index_path(
     total = len(candidates)
     candidate_paths = {str(p) for p in candidates}
     store.prune_missing_files(db_path, candidate_paths)
-    indexed = store.get_indexed_files(db_path)
+    indexed_mtimes = store.get_indexed_file_mtimes(db_path)
 
     for i, file_path in enumerate(candidates):
         fp_str = str(file_path)
         if progress_cb:
             progress_cb(fp_str, i + 1, total)
 
-        if not force and fp_str in indexed:
-            # Check mtime vs stored — simple: skip if already indexed
-            # TODO: store mtime and compare
+        current_mtime = file_path.stat().st_mtime
+        if not force and fp_str in indexed_mtimes and indexed_mtimes[fp_str] == current_mtime:
             continue
 
         text = read_file(file_path)
@@ -71,6 +70,6 @@ def index_path(
             # Skip files that fail to embed
             continue
 
-        store.upsert_chunks(db_path, fp_str, chunks, embeddings)
+        store.upsert_chunks(db_path, fp_str, chunks, embeddings, mtime=current_mtime)
 
     return total

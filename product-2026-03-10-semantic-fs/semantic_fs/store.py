@@ -18,7 +18,13 @@ def _collection(client):
     )
 
 
-def upsert_chunks(db_path: str, file_path: str, chunks: list[str], embeddings: list[list[float]]):
+def upsert_chunks(
+    db_path: str,
+    file_path: str,
+    chunks: list[str],
+    embeddings: list[list[float]],
+    mtime: float | None = None,
+):
     """Store chunks + embeddings for a file (replaces old entries)."""
     client = _get_client(db_path)
     col = _collection(client)
@@ -36,11 +42,17 @@ def upsert_chunks(db_path: str, file_path: str, chunks: list[str], embeddings: l
         hashlib.md5(f"{file_path}::{i}".encode()).hexdigest()
         for i in range(len(chunks))
     ]
+    metadatas = []
+    for i in range(len(chunks)):
+        meta = {"file_path": file_path, "chunk_idx": i}
+        if mtime is not None:
+            meta["mtime"] = mtime
+        metadatas.append(meta)
     col.upsert(
         ids=ids,
         embeddings=embeddings,
         documents=chunks,
-        metadatas=[{"file_path": file_path, "chunk_idx": i} for i in range(len(chunks))],
+        metadatas=metadatas,
     )
 
 
@@ -72,13 +84,26 @@ def search(db_path: str, query_embedding: list[float], top_k: int = 10) -> list[
 
 
 def get_indexed_files(db_path: str) -> set[str]:
+    return set(get_indexed_file_mtimes(db_path).keys())
+
+
+def get_indexed_file_mtimes(db_path: str) -> dict[str, float | None]:
     client = _get_client(db_path)
     col = _collection(client)
     try:
         all_meta = col.get(include=["metadatas"])["metadatas"]
-        return {m["file_path"] for m in all_meta if m and m.get("file_path")}
     except Exception:
-        return set()
+        return {}
+
+    out: dict[str, float | None] = {}
+    for meta in all_meta:
+        if not meta:
+            continue
+        file_path = meta.get("file_path")
+        if not file_path:
+            continue
+        out.setdefault(file_path, meta.get("mtime"))
+    return out
 
 
 def prune_missing_files(db_path: str, existing_paths: set[str]) -> int:
