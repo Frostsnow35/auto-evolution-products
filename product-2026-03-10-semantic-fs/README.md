@@ -71,7 +71,7 @@ sfs ask "summarize my notes about machine learning"
 # Status
 sfs status
 
-# Self-check local setup
+# Self-check local setup and get actionable diagnostics
 sfs doctor
 
 # Re-index a specific directory

@@ -1,6 +1,8 @@
 """CLI entry point for Semantic FS."""
 import importlib.util
 import os
+import socket
+import urllib.parse
 import urllib.request
 
 import click
@@ -169,6 +171,44 @@ def status():
         console.print(f"  LLM:         {config['api_llm_model']}")
 
 
+def _diagnose_ollama(url: str) -> tuple[bool, str, list[str]]:
+    tips: list[str] = []
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.hostname or "localhost"
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    try:
+        with urllib.request.urlopen(f"{url.rstrip('/')}/api/tags", timeout=3) as resp:
+            ok = resp.status == 200
+        detail = f"{url} responded successfully"
+        return ok, detail, tips
+    except urllib.error.URLError as e:
+        reason = getattr(e, "reason", e)
+        if isinstance(reason, ConnectionRefusedError):
+            tips = [
+                "Ollama 似乎没有启动；可先运行：ollama serve",
+                f"如果 Ollama 不在默认地址，请执行：sfs config set ollama_url {url}",
+                "确认本地已安装并可执行 ollama 命令",
+            ]
+            return False, f"{url} connection refused", tips
+        if isinstance(reason, socket.timeout):
+            tips = [
+                f"{url} 响应超时；检查服务是否卡住或地址是否可达",
+                "若服务在远程主机，确认网络和防火墙允许访问",
+            ]
+            return False, f"{url} timed out", tips
+        tips = [
+            "检查 ollama_url 配置是否正确",
+            "确认 /api/tags 接口可访问",
+        ]
+        return False, f"{url} ({reason})", tips
+    except Exception as e:
+        tips = [
+            "检查 Ollama 服务状态",
+            "检查本地网络与 URL 配置",
+        ]
+        return False, f"{url} ({e})", tips
+
+
 @main.command()
 def doctor():
     """Run a local health check for Semantic FS."""
@@ -177,6 +217,7 @@ def doctor():
     db_path = os.path.expanduser(config["db_path"])
 
     rows = []
+    suggestions: list[str] = []
 
     def add(check: str, ok: bool, detail: str):
         rows.append((check, "OK" if ok else "WARN", detail))
@@ -191,12 +232,9 @@ def doctor():
 
     if mode == "local":
         ollama_url = config.get("ollama_url", "http://localhost:11434").rstrip("/")
-        try:
-            with urllib.request.urlopen(f"{ollama_url}/api/tags", timeout=3) as resp:
-                ok = resp.status == 200
-            add("ollama reachable", ok, ollama_url)
-        except Exception as e:
-            add("ollama reachable", False, f"{ollama_url} ({e})")
+        ok, detail, tips = _diagnose_ollama(ollama_url)
+        add("ollama reachable", ok, detail)
+        suggestions.extend(tips)
         add("embed model set", bool(config.get("ollama_model")), config.get("ollama_model", ""))
         add("llm model set", bool(config.get("ollama_llm")), config.get("ollama_llm", ""))
     else:
@@ -219,6 +257,10 @@ def doctor():
     console.print(f"\n[bold]Summary:[/bold] {ok_count} OK, {warn_count} warnings")
     if warn_count:
         console.print("[yellow]Suggestion:[/yellow] fix warnings before large indexing runs.")
+        if suggestions:
+            console.print("[yellow]Next steps:[/yellow]")
+            for tip in dict.fromkeys(suggestions):
+                console.print(f"  • {tip}")
     else:
         console.print("[green]Semantic FS looks ready.[/green]")
 
