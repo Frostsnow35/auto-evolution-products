@@ -74,6 +74,9 @@ sfs status
 # Self-check local setup and get actionable diagnostics
 sfs doctor
 
+# Build a lightweight project-oriented view from semantic search results
+sfs project-view "semantic fs"
+
 # Re-index a specific directory
 sfs index ~/Documents
 

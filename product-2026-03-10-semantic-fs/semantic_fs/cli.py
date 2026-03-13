@@ -150,6 +150,46 @@ def ask(question, top):
                 console.print(f"  [dim]• {fp} (score: {s['score']})[/dim]")
 
 
+@main.command("project-view")
+@click.argument("query")
+@click.option("--top", default=8, help="Number of candidate files to analyze")
+def project_view(query, top):
+    """Show a lightweight project-oriented semantic view for QUERY."""
+    from .project_view import build_project_view
+
+    with console.status("Building project view..."):
+        try:
+            view = build_project_view(query, top_k=top)
+        except Exception as e:
+            console.print(f"[red]Error:[/red] {e}")
+            return
+
+    console.print(f"\n[bold green]Project View:[/bold green] {view['query']}")
+    console.print(f"\n[bold]Overview[/bold]\n{view['summary']}")
+
+    if view["keywords"]:
+        console.print(f"\n[bold]Themes[/bold]\n- " + "\n- ".join(view["keywords"][:8]))
+
+    if view["key_files"]:
+        table = Table(title="Key Files")
+        table.add_column("Score", style="cyan", width=7)
+        table.add_column("File", style="bold")
+        table.add_column("Preview", style="dim")
+        for item in view["key_files"]:
+            table.add_row(str(item["score"]), item["file_path"], item["preview"] + "...")
+        console.print(table)
+
+    if view["recent_changes"]:
+        console.print("\n[bold]Recent Changes[/bold]")
+        for item in view["recent_changes"]:
+            console.print(f"- {item['updated_at']} | {item['file_path']} (score: {item['score']})")
+
+    if view["risks"]:
+        console.print("\n[bold]Risks / Gaps[/bold]")
+        for risk in view["risks"]:
+            console.print(f"- {risk}")
+
+
 @main.command()
 def status():
     """Show index status."""

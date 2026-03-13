@@ -27,6 +27,19 @@ _INT_KEYS = {"chunk_size", "chunk_overlap"}
 _FLOAT_KEYS = {"max_file_size_mb"}
 _LIST_KEYS = {"index_paths", "exclude_patterns"}
 
+
+def _validate_chunk_settings(config: dict) -> dict:
+    chunk_size = config.get("chunk_size", DEFAULT_CONFIG["chunk_size"])
+    chunk_overlap = config.get("chunk_overlap", DEFAULT_CONFIG["chunk_overlap"])
+
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be greater than 0")
+    if chunk_overlap < 0:
+        raise ValueError("chunk_overlap must be greater than or equal to 0")
+    if chunk_overlap >= chunk_size:
+        raise ValueError("chunk_overlap must be smaller than chunk_size")
+    return config
+
 CONFIG_PATH = Path("~/.semantic-fs/config.json").expanduser()
 
 
@@ -61,7 +74,7 @@ def _normalize_config(config: dict) -> dict:
     for key in (*_INT_KEYS, *_FLOAT_KEYS, *_LIST_KEYS):
         if key in normalized:
             normalized[key] = _coerce_config_value(key, normalized[key])
-    return normalized
+    return _validate_chunk_settings(normalized)
 
 
 def load_config() -> dict:
