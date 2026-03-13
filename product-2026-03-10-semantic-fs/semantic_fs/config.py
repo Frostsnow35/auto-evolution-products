@@ -1,6 +1,5 @@
 """Configuration management for Semantic FS."""
 import json
-import os
 from pathlib import Path
 
 DEFAULT_CONFIG = {
@@ -24,14 +23,52 @@ DEFAULT_CONFIG = {
     "chunk_overlap": 50,
 }
 
+_INT_KEYS = {"chunk_size", "chunk_overlap"}
+_FLOAT_KEYS = {"max_file_size_mb"}
+_LIST_KEYS = {"index_paths", "exclude_patterns"}
+
 CONFIG_PATH = Path("~/.semantic-fs/config.json").expanduser()
+
+
+def _coerce_config_value(key: str, value):
+    if key in _INT_KEYS:
+        if isinstance(value, str):
+            value = value.strip()
+        return int(value)
+    if key in _FLOAT_KEYS:
+        if isinstance(value, str):
+            value = value.strip()
+        return float(value)
+    if key in _LIST_KEYS:
+        if isinstance(value, list):
+            return value
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return []
+            if stripped.startswith("["):
+                parsed = json.loads(stripped)
+                if not isinstance(parsed, list):
+                    raise ValueError(f"{key} must be a JSON list")
+                return parsed
+            return [item.strip() for item in stripped.split(",") if item.strip()]
+        raise ValueError(f"Unsupported value type for {key}: {type(value).__name__}")
+    return value
+
+
+def _normalize_config(config: dict) -> dict:
+    normalized = {**DEFAULT_CONFIG, **config}
+    for key in (*_INT_KEYS, *_FLOAT_KEYS, *_LIST_KEYS):
+        if key in normalized:
+            normalized[key] = _coerce_config_value(key, normalized[key])
+    return normalized
 
 
 def load_config() -> dict:
     if CONFIG_PATH.exists():
         with open(CONFIG_PATH) as f:
             data = json.load(f)
-        return {**DEFAULT_CONFIG, **data}
+        return _normalize_config(data)
     return DEFAULT_CONFIG.copy()
 
 
@@ -47,6 +84,5 @@ def get(key: str):
 
 def set_value(key: str, value: str):
     config = load_config()
-    # Type coercion for known int/list keys
-    config[key] = value
+    config[key] = _coerce_config_value(key, value)
     save_config(config)
