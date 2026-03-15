@@ -22,6 +22,12 @@ def main() -> int:
         print("usage: send_email_report.py <report-path>", file=sys.stderr)
         return 2
 
+    required = ["SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD", "SMTP_FROM", "REPORT_EMAIL_TO"]
+    missing = [key for key in required if not os.environ.get(key, "").strip()]
+    if missing:
+        print(json.dumps({"status": "skipped", "reason": "missing_smtp_env", "missing": missing}, ensure_ascii=False))
+        return 0
+
     report_path = (ROOT / sys.argv[1]).resolve()
     body = report_path.read_text(encoding="utf-8") if report_path.exists() else "No report file was found."
     now = datetime.now(TZ)
