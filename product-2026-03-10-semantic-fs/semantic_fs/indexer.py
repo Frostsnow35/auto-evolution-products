@@ -57,27 +57,19 @@ def _index_single_file(
     return True
 
 
-def index_path(
-    root: str,
-    progress_cb: Callable[[str, int, int], None] | None = None,
-    force: bool = False,
-):
-    """Index all readable files under root."""
+def build_index_plan(root: str) -> dict:
+    """Build a dry-run plan for indexing without mutating the index."""
     config = cfg.load_config()
-    db_path = config["db_path"]
     max_mb = config.get("max_file_size_mb", 10)
-    chunk_size = config.get("chunk_size", 500)
-    chunk_overlap = config.get("chunk_overlap", 50)
     exclude = config.get("exclude_patterns", [])
 
-    embedder = get_embedder(config)
     root_path = Path(root).expanduser().resolve()
     if not root_path.exists():
         raise FileNotFoundError(f"Path does not exist: {root_path}")
 
-    # Collect candidate files
     if root_path.is_file():
         candidates = [root_path] if can_read(root_path, max_mb) and not _is_excluded(root_path, exclude) else []
+        scope_type = "file"
         should_prune = False
     else:
         candidates = []
@@ -86,11 +78,44 @@ def index_path(
                 continue
             if can_read(p, max_mb):
                 candidates.append(p)
+        scope_type = "directory"
         should_prune = True
 
-    total = len(candidates)
-    candidate_paths = {str(p) for p in candidates}
-    if should_prune:
+    sample_files = [str(p) for p in candidates[:10]]
+    return {
+        "root": str(root_path),
+        "scope_type": scope_type,
+        "candidate_count": len(candidates),
+        "candidate_paths": {str(p) for p in candidates},
+        "sample_files": sample_files,
+        "excluded_patterns": exclude,
+        "max_file_size_mb": max_mb,
+        "should_prune": should_prune,
+        "prune_scope": str(root_path) if should_prune else None,
+    }
+
+
+def index_path(
+    root: str,
+    progress_cb: Callable[[str, int, int], None] | None = None,
+    force: bool = False,
+):
+    """Index all readable files under root."""
+    config = cfg.load_config()
+    db_path = config["db_path"]
+    chunk_size = config.get("chunk_size", 500)
+    chunk_overlap = config.get("chunk_overlap", 50)
+    exclude = config.get("exclude_patterns", [])
+
+    plan = build_index_plan(root)
+    embedder = get_embedder(config)
+
+    total = plan["candidate_count"]
+    candidate_paths = plan["candidate_paths"]
+    root_path = Path(plan["root"])
+    candidates = [Path(p) for p in sorted(candidate_paths)]
+
+    if plan["should_prune"]:
         store.prune_missing_files(db_path, candidate_paths, scope_root=str(root_path))
     indexed_mtimes = store.get_indexed_file_mtimes(db_path)
 
@@ -101,7 +126,7 @@ def index_path(
         _index_single_file(
             file_path,
             db_path=db_path,
-            max_mb=max_mb,
+            max_mb=plan["max_file_size_mb"],
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             exclude=exclude,

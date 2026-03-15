@@ -40,14 +40,54 @@ def init():
     console.print("\nRun [bold]sfs index ~[/bold] to start indexing your home directory.")
 
 
+def _render_index_plan(plan: dict, dry_run: bool):
+    title = "Index Dry Run" if dry_run else "Index Plan"
+    console.print(f"[bold]{title}[/bold]")
+    console.print(f"  Path:          {plan['root']}")
+    console.print(f"  Scope:         {plan['scope_type']}")
+    console.print(f"  Candidates:    {plan['candidate_count']}")
+    console.print(f"  Max file size: {plan['max_file_size_mb']} MB")
+    console.print(f"  Prune:         {'yes' if plan['should_prune'] else 'no'}")
+    if plan['prune_scope']:
+        console.print(f"  Prune scope:   {plan['prune_scope']}")
+
+    if plan['excluded_patterns']:
+        console.print("  Excludes:      " + ", ".join(plan['excluded_patterns']))
+
+    if plan['sample_files']:
+        table = Table(title="Sample files to index")
+        table.add_column("#", width=4, style="cyan")
+        table.add_column("Path", style="bold")
+        for idx, path in enumerate(plan['sample_files'], start=1):
+            table.add_row(str(idx), path)
+        console.print(table)
+    else:
+        console.print("[yellow]No readable, non-excluded files would be indexed.[/yellow]")
+
+    if dry_run:
+        console.print("[green]✓[/green] Dry run only; no index changes were made.")
+
+
 @main.command()
 @click.argument("path", default="~/")
 @click.option("--force", is_flag=True, help="Re-index already indexed files")
-def index(path, force):
+@click.option("--dry-run", is_flag=True, help="Preview scope, candidates, and prune behavior without indexing")
+def index(path, force, dry_run):
     """Index files under PATH for semantic search."""
-    from .indexer import index_path
+    from .indexer import build_index_plan, index_path
+
+    try:
+        plan = build_index_plan(path)
+    except (FileNotFoundError, NotADirectoryError) as e:
+        console.print(f"[red]Indexing failed:[/red] {e}")
+        return
+
+    if dry_run:
+        _render_index_plan(plan, dry_run=True)
+        return
 
     console.print(f"[bold]Indexing[/bold] {path} ...")
+    _render_index_plan(plan, dry_run=False)
 
     indexed_count = [0]
 

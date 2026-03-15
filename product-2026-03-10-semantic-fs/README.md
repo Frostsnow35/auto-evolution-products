@@ -77,6 +77,9 @@ sfs doctor
 # Build a lightweight project-oriented view from semantic search results
 sfs project-view "semantic fs"
 
+# Preview what would be indexed without mutating the index
+sfs index --dry-run ~/Documents
+
 # Re-index a specific directory
 sfs index ~/Documents
 
