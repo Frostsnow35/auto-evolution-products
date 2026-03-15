@@ -1,0 +1,71 @@
+name: Daily Automation
+
+on:
+  schedule:
+    - cron: '0 18 * * *' # 02:00 Asia/Shanghai
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-automation
+  cancel-in-progress: false
+
+env:
+  TZ: Asia/Shanghai
+  TARGET_PRODUCT: product-2026-03-10-semantic-fs
+
+jobs:
+  daily-automation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate daily report artifact and repo change
+        run: python .github/scripts/daily_automation.py
+
+      - name: Commit and push daily change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add automation/daily-reports .github/workflows .github/scripts
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          DATE_CN="$(TZ=Asia/Shanghai date +%F)"
+          git commit -m "chore(daily): nightly automation report ${DATE_CN} [skip ci]"
+          git push origin HEAD:main
+
+      - name: Send email report
+        if: ${{ secrets.SMTP_HOST != '' && secrets.SMTP_USERNAME != '' && secrets.SMTP_PASSWORD != '' && secrets.SMTP_FROM != '' && secrets.REPORT_EMAIL_TO != '' }}
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          REPORT_EMAIL_TO: ${{ secrets.REPORT_EMAIL_TO }}
+        run: python .github/scripts/send_email_report.py automation/daily-reports/latest.md
+
+      - name: Publish workflow summary
+        if: always()
+        run: |
+          echo "## Daily Automation" >> "$GITHUB_STEP_SUMMARY"
+          echo "- GitHub-hosted workflow: yes" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Actions page visible: yes" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Ollama required: no" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Note: Ollama not running only affects local validation depth; it does not block this GitHub-hosted submission." >> "$GITHUB_STEP_SUMMARY"
+          if [ -f automation/daily-reports/latest.md ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            cat automation/daily-reports/latest.md >> "$GITHUB_STEP_SUMMARY"
+          fi
