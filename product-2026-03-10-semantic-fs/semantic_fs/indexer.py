@@ -72,18 +72,26 @@ def index_path(
 
     embedder = get_embedder(config)
     root_path = Path(root).expanduser().resolve()
+    if not root_path.exists():
+        raise FileNotFoundError(f"Path does not exist: {root_path}")
 
     # Collect candidate files
-    candidates = []
-    for p in root_path.rglob("*"):
-        if _is_excluded(p, exclude):
-            continue
-        if can_read(p, max_mb):
-            candidates.append(p)
+    if root_path.is_file():
+        candidates = [root_path] if can_read(root_path, max_mb) and not _is_excluded(root_path, exclude) else []
+        should_prune = False
+    else:
+        candidates = []
+        for p in root_path.rglob("*"):
+            if _is_excluded(p, exclude):
+                continue
+            if can_read(p, max_mb):
+                candidates.append(p)
+        should_prune = True
 
     total = len(candidates)
     candidate_paths = {str(p) for p in candidates}
-    store.prune_missing_files(db_path, candidate_paths)
+    if should_prune:
+        store.prune_missing_files(db_path, candidate_paths, scope_root=str(root_path))
     indexed_mtimes = store.get_indexed_file_mtimes(db_path)
 
     for i, file_path in enumerate(candidates):
@@ -138,6 +146,10 @@ def watch_path(root: str, recursive: bool = True, settle_seconds: float = 1.0):
     from watchdog.observers import Observer
 
     root_path = Path(root).expanduser().resolve()
+    if not root_path.exists():
+        raise FileNotFoundError(f"Path does not exist: {root_path}")
+    if not root_path.is_dir():
+        raise NotADirectoryError(f"Watch path must be a directory: {root_path}")
 
     class Handler(FileSystemEventHandler):
         def __init__(self):

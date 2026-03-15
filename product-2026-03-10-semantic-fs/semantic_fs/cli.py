@@ -56,7 +56,11 @@ def index(path, force):
             console.print(f"  [{current}/{total}] {fp[:60]}...")
         indexed_count[0] = current
 
-    total = index_path(path, progress_cb=progress_cb, force=force)
+    try:
+        total = index_path(path, progress_cb=progress_cb, force=force)
+    except (FileNotFoundError, NotADirectoryError) as e:
+        console.print(f"[red]Indexing failed:[/red] {e}")
+        return
     config = cfg.load_config()
     chunks = store.count(config["db_path"])
     console.print(f"\n[green]✓[/green] Done. Scanned {total} files, {chunks} chunks in index.")
@@ -71,7 +75,11 @@ def watch(path, recursive, settle_seconds):
     from .indexer import watch_path
 
     console.print(f"[bold]Watching[/bold] {path} for file changes...")
-    observer = watch_path(path, recursive=recursive, settle_seconds=settle_seconds)
+    try:
+        observer = watch_path(path, recursive=recursive, settle_seconds=settle_seconds)
+    except (FileNotFoundError, NotADirectoryError) as e:
+        console.print(f"[red]Watch failed:[/red] {e}")
+        return
     console.print("[green]✓[/green] Watcher started. Press Ctrl+C to stop.")
     try:
         observer.join()
