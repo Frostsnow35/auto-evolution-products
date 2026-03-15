@@ -106,10 +106,26 @@ def get_indexed_file_mtimes(db_path: str) -> dict[str, float | None]:
     return out
 
 
-def prune_missing_files(db_path: str, existing_paths: set[str]) -> int:
-    """Remove indexed entries for files that no longer exist on disk."""
+def prune_missing_files(
+    db_path: str,
+    existing_paths: set[str],
+    scope_root: str | None = None,
+) -> int:
+    """Remove indexed entries for files that no longer exist on disk.
+
+    When scope_root is provided, only entries under that directory scope are
+    considered for pruning so partial indexing runs do not delete unrelated
+    indexed files.
+    """
     removed = 0
+    scope_prefix = None
+    if scope_root:
+        root = str(Path(scope_root).expanduser().resolve())
+        scope_prefix = root + "/"
+
     for file_path in get_indexed_files(db_path):
+        if scope_prefix and not (file_path == scope_root or file_path.startswith(scope_prefix)):
+            continue
         if file_path not in existing_paths:
             delete_file(db_path, file_path)
             removed += 1
