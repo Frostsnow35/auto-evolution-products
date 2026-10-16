@@ -1,10 +1,10 @@
-# 每日自动化报告 - 2026-10-16
+# 每日自动化报告 - 2026-10-17
 
-- 生成时间：2026-10-16 04:46:34 CST
+- 生成时间：2026-10-17 04:19:35 CST
 - 执行位置：GitHub Actions（GitHub 托管）
 - Actions 页面可见：是
 - 目标产品：`product-2026-03-10-semantic-fs`
-- 执行前 HEAD：`96aa102c4c48f58f3659211fb220953bd2cad72b`
+- 执行前 HEAD：`80055bba390323d53eda4712e1b6639ee87c733c`
 - Ollama 说明：Ollama 未启动只影响本地测试/验证深度，不影响本 GitHub-hosted 提交。
 
 ## 本轮交付
